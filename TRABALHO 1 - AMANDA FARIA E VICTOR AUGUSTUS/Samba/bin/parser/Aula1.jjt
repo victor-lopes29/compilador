@@ -1,0 +1,396 @@
+PARSER_BEGIN(Aula1)
+
+package parser;
+import recovery.*;
+
+public class Aula1
+{
+	public static void main (String args []) throws ParseException
+	{
+		Aula1 parser = new Aula1 (System.in);
+		while (true)
+		{
+			System.out.println("Comecando a contagem: 1,2,3,4");
+			System.out.print("Toque o primeiro instrumento: ");
+
+			SimpleNode n = Aula1.main();
+			n.dump(" ");
+
+			try
+			{
+				/*switch (Aula1.main())
+				{
+					case 0:
+					System.out.println("Samba limpo");
+					break;
+					case 1:
+					System.out.println("Instrumentos na salinha");
+					break;
+					default:
+					break;
+				}*/
+			}
+			catch (Exception e)
+			{
+				System.out.println("Ta ficando sujo o instrumento");
+				System.out.println(e.getMessage());
+				Aula1.ReInit(System.in);
+			}
+			catch (Error e)
+			{
+				System.out.println("Para! Saiu do tempo");
+				System.out.println(e.getMessage());
+				break;
+			}
+		}
+	}
+static public String im(int x)
+  {
+    int k;
+	String s;
+    s = tokenImage[x];
+    k = s.lastIndexOf("\"");
+    try {
+      s = s.substring(1,k);
+    }
+   catch (StringIndexOutOfBoundsException e)
+	   {}
+   return s;
+  }
+	
+  static Token lastError = null;
+  static boolean eof;    // variável que indica se EOF foi alcançado
+	
+  // o método abaixo consome tokens até alcançar um que pertença ao conjunto
+  // de sincronização
+  static void consumeUntil(RecoverySet g,
+	                 ParseException e,
+	                 String met) throws ParseEOFException,
+	                                    ParseException
+  {
+	Token tok;
+	System.out.println();
+	System.out.println("*** " + met + " ***");
+	System.out.println("     Conjunto de sincronização: " + g);
+		
+	if (g == null) throw e; // se o conjunto é null, propaga a exceção
+	
+	tok = getToken(1); // pega token corrente
+	while ( ! eof )	{ // se não chegou ao fim do arquivo
+	  if ( g.contains(tok.kind)) {//achou um token no conjunto
+	    System.out.println("     Encontrado token de sincronização: " + 
+	                       im(tok.kind));
+	    break;
+	  }
+	  System.out.println("     Ignorando o token: " + im(tok.kind));
+	  getNextToken();     // pega próximo token       
+      tok = getToken(1);
+	  if (tok.kind == EOF && ! g.contains(EOF) ) // fim da entrada?   
+	      eof = true;
+	}
+    if ( tok != lastError)  {
+	  System.out.println(e.getMessage());
+	  lastError = tok;
+	   
+	}
+	if ( eof )
+	  throw new ParseEOFException("Encontrei EOF onde não deveria.");
+  }
+}
+	
+PARSER_END(Aula1)
+
+SKIP :
+{
+	" "
+|	"\r"
+|	"\t"
+|	"\n"
+}
+
+TOKEN :
+{
+	< COMECAPROGRAMA : "chamada" >
+	| < ABREBLOCO : "iniciosamba" >
+	| < TERMINABLOCO : "viradadedois" >
+	| < INT : "int" >
+	| < FLOAT : "float" >
+	| < VARCHAR : "varchar" >
+	| < SEPARAR : "," >
+	| < FIMINSTRUCAO : "fechabossa" >
+	| < IF : "mestre" >
+	| < THEN : "toque" >
+	| < ELSE : "espere" >
+	| < FOR : "contagem" >
+	| < TO : "parada" >
+	| < WHILE : "bossa" >
+	| < DO : "toquebossa" >
+	| < IGUAL : "=" >
+	| < SOMA : " + " >
+	| < SUBTRACAO : " - " >
+	| < MULTIPLICACAO : " * " >
+	| < DIVISAO : " / " >
+}
+
+TOKEN :
+{
+	< DECIMAL : (< NUMERICO >)+ >
+|	< NUMERICO : [ "0"-"9" ] >
+|   < IDENTIFICADOR : < LETRA > (<LETRA> | < NUMERICO > ) * >
+|   < LETRA   : ["A" - "Z"] | ["a" - "z"] >
+}
+
+SimpleNode main() :
+{RecoverySet sincronizacao = Follow.main;}
+{
+  try { 
+	comecaprograma() abrebloco()
+		(comandos())*
+	terminabloco()
+	{ return jjtThis; }
+	}
+	catch (ParseException e) {
+		consumeUntil(sincronizacao, e, "main");
+	}
+}
+
+void ID():
+{}
+{
+	< IDENTIFICADOR >
+}
+
+void comecaprograma():
+{}
+{
+  < COMECAPROGRAMA >
+}
+
+void abrebloco():
+{}
+{
+ < ABREBLOCO >
+}
+
+void terminabloco():
+{}
+{
+ < TERMINABLOCO >
+}
+
+void comandos():
+{RecoverySet sincronizacao = Follow.comandos;}
+{
+  	try {
+	declararVariavel() | function() | conta()
+	}
+	catch (ParseException e) {
+		consumeUntil(sincronizacao, e, "comandos");
+	}
+}
+
+void declararVariavel():
+{RecoverySet sincronizacao = Follow.declaravariavel;}
+{
+  try {
+	tipoDado() (ID() atribuicao() (separador())? )+fiminstrucao()
+	}
+	catch (ParseException e) {
+		consumeUntil(sincronizacao, e, "declaravariavel");
+	}
+}
+
+void separador():
+{}
+{
+ < SEPARAR >
+}
+
+void fiminstrucao():
+{}
+{
+ < FIMINSTRUCAO >
+}
+
+void function() :
+{}
+{
+	(ifStatement() | forStatement() | whileStatement())
+}
+
+void ifStatement() :
+{RecoverySet sincronizacao = Follow.ifStatement;}
+{
+  try { 
+	cond_if() expressao() cond_then() comandos() cond_else() comandos()
+	}
+	catch (ParseException e) {
+		consumeUntil(sincronizacao, e, "ifStatement");
+	}
+}
+
+void cond_if():
+{}
+{
+	<  IF >
+}
+
+void cond_then():
+{}
+{
+	< THEN >
+}
+
+void cond_else():
+{}
+{
+	<ELSE>
+}
+
+void forStatement() :
+{RecoverySet sincronizacao = Follow.forStatement;}
+{
+  try { 
+	rep_for() ID() expressao() rep_to() expressao() comandos()
+	}
+	catch (ParseException e) {
+		consumeUntil(sincronizacao, e, "forStatement");
+	}
+}
+
+void rep_for():
+{}
+{
+	< FOR >
+}
+
+void rep_to():
+{}
+{
+	<TO>
+}
+
+void whileStatement() :
+{RecoverySet sincronizacao = Follow.whileStatement;}
+{
+  try { 
+	rep_while() expressao() rep_do() comandos()
+	}
+	catch (ParseException e) {
+		consumeUntil(sincronizacao, e, "whileStatement");
+	}
+}
+
+void rep_while():
+{}
+{
+	< WHILE >
+}
+
+void rep_do():
+{}
+{
+	< DO >
+}
+
+void tipoDado():
+{}
+{
+	tipo_int() | tipo_float() | tipo_varchar()
+}
+
+void tipo_int():
+{}
+{
+	< INT >
+}
+
+void tipo_float():
+{}
+{
+	< FLOAT >
+}
+
+void tipo_varchar():
+{}
+{
+	< VARCHAR >
+}
+
+void atribuicao() :
+{}
+{
+	(igual() (letra() | decimal()))?
+}
+
+void op_matematica() :
+{}
+{
+    termo() ( ( soma() | subtracao() ) termo() )*
+}
+
+void termo() :
+{}
+{
+    fator() ( ( multiplicacao() | divisao() ) fator() )*
+}
+
+void fator() :
+{}
+{
+    decimal() | ID()
+}
+
+void conta():
+{}
+{
+	ID() igual() op_matematica()
+}
+
+void igual():
+{}
+{
+	< IGUAL >
+}
+
+void soma():
+{ }
+{
+  < SOMA >
+}
+
+void subtracao():
+{ }
+{
+  < SUBTRACAO >
+}
+
+void multiplicacao():
+{}
+{
+  < MULTIPLICACAO >
+}
+
+void divisao():
+{ }
+{
+  < DIVISAO >
+}
+
+void letra():
+{}
+{
+	< LETRA >
+}
+
+void decimal():
+{}
+{
+	< DECIMAL >
+}
+
+void expressao() :
+{}
+{
+	(comandos())*
+}
